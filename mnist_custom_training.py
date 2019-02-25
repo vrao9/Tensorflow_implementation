@@ -71,8 +71,8 @@ global_step = tf.Variable(0)
 
 epochs = 100
 train_writer = tf.contrib.summary.create_file_writer(
-    "logs/fminst_gru/%s/train" % datetime.now().strftime(
-        "%Y%m%d_%H%M"))
+    "logs/%s/" % datetime.now().strftime(
+        "%d%m%y_%H%M"))
 
 for train_batch in train_dataset:
     input_img = train_batch[0]
