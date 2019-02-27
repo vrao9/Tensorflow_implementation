@@ -1,5 +1,5 @@
 import tensorflow as tf
-from datetime import datetime
+import time
 import numpy as np
 tf.enable_eager_execution()
 '''
@@ -70,9 +70,8 @@ optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
 global_step = tf.Variable(0)
 
 epochs = 100
-train_writer = tf.contrib.summary.create_file_writer(
-    "logs/fminst_gru/%s/train" % datetime.now().strftime(
-        "%Y%m%d_%H%M"))
+NAME = f'mnist_simple_{time.strftime("%d%m%y_%H%M")}'
+train_writer = tf.contrib.summary.create_file_writer(f'logs/{NAME}')
 
 for train_batch in train_dataset:
     input_img = train_batch[0]
@@ -90,4 +89,5 @@ for train_batch in train_dataset:
                                       step=tf.cast(global_step, 'int64'))
             tf.contrib.summary.scalar("accuracy", accuracy,
                                       step=tf.cast(global_step, 'int64'))
+            tf.contrib.summary.image("digits", input_img[..., np.newaxis], max_images=3, step=tf.cast(global_step, 'int64'))
 
