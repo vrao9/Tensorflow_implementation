@@ -1,6 +1,7 @@
 import tensorflow as tf
 import time
 import numpy as np
+import os
 tf.enable_eager_execution()
 '''
 1) Mnist exampple for custom training
@@ -66,12 +67,23 @@ no_batches = training_samples//batch_size
 train_dataset, test_dataset = get_dataset(batch_size)
 
 model = create_model()
+NAME = f'mnist_simple_{time.strftime("%d%m%y_%H%M")}'
+# NAME = 'mnist_simple_050319_1113'
 optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
-global_step = tf.Variable(0)
+
+ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, model=model)
+manager = tf.train.CheckpointManager(ckpt, f'./{NAME}', max_to_keep=3)
+ckpt.restore(manager.latest_checkpoint)
+if manager.latest_checkpoint:
+    print("Restored from {}".format(manager.latest_checkpoint))
+    global_step = tf.Variable(ckpt.step * no_batches)
+else:
+    print("Initializing from scratch.")
+    global_step = tf.Variable(0)
+    ckpt.__setattr__('path', NAME)
 
 epochs = 100
-NAME = f'mnist_simple_{time.strftime("%d%m%y_%H%M")}'
-train_writer = tf.contrib.summary.create_file_writer(f'logs/{NAME}')
+train_writer = tf.contrib.summary.create_file_writer(f'{NAME}/logs')
 
 for train_batch in train_dataset:
     input_img = train_batch[0]
@@ -84,10 +96,16 @@ for train_batch in train_dataset:
     # completion of an epoch
     if tf.math.equal(global_step % no_batches, tf.constant(0)):
         print(f'the loss is {loss_val} and accuracy is {accuracy}')
+        ckpt.step.assign(global_step // no_batches)
+        save_path = manager.save()
+        print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
         with train_writer.as_default(), tf.contrib.summary.always_record_summaries():
             tf.contrib.summary.scalar("loss", loss_val,
-                                      step=tf.cast(global_step, 'int64'))
+                                      step=tf.cast(global_step // no_batches, 'int64'))
             tf.contrib.summary.scalar("accuracy", accuracy,
-                                      step=tf.cast(global_step, 'int64'))
-            tf.contrib.summary.image("digits", input_img[..., np.newaxis], max_images=3, step=tf.cast(global_step, 'int64'))
-
+                                      step=tf.cast(global_step // no_batches, 'int64'))
+            tf.contrib.summary.image("digits", input_img[..., np.newaxis], max_images=3,
+                                     step=tf.cast(global_step // no_batches, 'int64'))
+            print(global_step // no_batches)
+            # Forces summary writer to send any buffered data to storage
+            tf.contrib.summary.flush()
